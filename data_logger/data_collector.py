@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, LaserScan
+from std_msgs.msg import Float64
 from nav_msgs.msg import Odometry
 import cv2
 import csv
@@ -13,8 +14,8 @@ class DataCollector(Node):
         super().__init__('data_collector')
 
         # Subscribe to camera and odometry topics
-        self.motor_sub = self.create_subscription(Float32, 'commands/motor', self.motor_callback, 10)
-        self.servo_sub = self.create_subscription(Float32, 'commands/servo', self.servo_callback, 10)
+        self.motor_sub = self.create_subscription(Float64, 'commands/motor', self.motor_callback, 10)
+        self.servo_sub = self.create_subscription(Float64, 'commands/servo', self.servo_callback, 10)
         self.image_sub = self.create_subscription(Image, '/camera/image_raw', self.image_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
         self.lidar_sub = self.create_subscription(LaserScan, '/scan', self.lidar_callback,10)
@@ -38,7 +39,7 @@ class DataCollector(Node):
         self.log_file = open(os.path.join(self.image_dir, "driving_log.csv"), "w", newline='')
         self.writer = csv.writer(self.log_file)
         self.get_logger().info(f"{self.image_dir}")
-        self.writer.writerow(["timestamp", "image_path","lidar_list", "rotational", "linear","steering", "throttle"])
+        self.writer.writerow(["timestamp", "image_path","lidar_list","steering", "throttle", "rotational", "linear"])
         
 
     def lidar_callback(self,msg):
@@ -62,7 +63,7 @@ class DataCollector(Node):
         cv2.imwrite(img_path, frame)
 
         # Save data to CSV
-        self.writer.writerow([timestamp, img_path, self.latest_lidar, self.latest_steering, self.latest_throttle])
+        self.writer.writerow([timestamp, img_path, self.latest_lidar, self.latest_steering, self.latest_throttle, self.latest_rotation, self.latest_linear])
         # self.get_logger().info(f"Saved {img_path}, Steering: {self.latest_steering}, Throttle: {self.latest_throttle}")
 
     def odom_callback(self, msg):
