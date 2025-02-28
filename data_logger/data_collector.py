@@ -13,6 +13,8 @@ class DataCollector(Node):
         super().__init__('data_collector')
 
         # Subscribe to camera and odometry topics
+        self.motor_sub = self.create_subscription(Float32, 'commands/motor', self.motor_callback, 10)
+        self.servo_sub = self.create_subscription(Float32, 'commands/servo', self.servo_callback, 10)
         self.image_sub = self.create_subscription(Image, '/camera/image_raw', self.image_callback, 10)
         self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
         self.lidar_sub = self.create_subscription(LaserScan, '/scan', self.lidar_callback,10)
@@ -21,6 +23,8 @@ class DataCollector(Node):
         self.bridge = CvBridge()
 
         # Initialize steering and throttle variables
+        self.latest_rotation = 0.0
+        self.latest_linear = 0.0
         self.latest_steering = 0.0
         self.latest_throttle = 0.0
         self.latest_lidar = None
@@ -34,12 +38,17 @@ class DataCollector(Node):
         self.log_file = open(os.path.join(self.image_dir, "driving_log.csv"), "w", newline='')
         self.writer = csv.writer(self.log_file)
         self.get_logger().info(f"{self.image_dir}")
-        self.writer.writerow(["timestamp", "image_path","lidar_list", "steering", "throttle"])
+        self.writer.writerow(["timestamp", "image_path","lidar_list", "rotational", "linear","steering", "throttle"])
         
 
     def lidar_callback(self,msg):
         self.latest_lidar = list(msg.ranges)
         
+    def motor_callback(self, msg):
+        self.latest_throttle = msg.speed
+        
+    def servo_callback(self, msg):
+        self.latest_steering = msg.position
 
     def image_callback(self, msg):
         # Convert ROS 2 Image to OpenCV format
@@ -58,14 +67,15 @@ class DataCollector(Node):
 
     def odom_callback(self, msg):
         # Extract throttle from linear velocity (assuming x-direction motion)
-        self.latest_throttle = msg.twist.twist.linear.x  
+        self.latest_linear = msg.twist.twist.linear.x  
 
         # Extract steering from angular velocity (assuming z-axis turning)
-        self.latest_steering = msg.twist.twist.angular.z  
+        self.latest_rotation = msg.twist.twist.angular.z  
 
     def cleanup(self):
         self.log_file.close()
         self.get_logger().info("Data logging complete.")
+
 
 def main():
     rclpy.init()
